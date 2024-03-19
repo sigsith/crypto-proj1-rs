@@ -1,4 +1,4 @@
-#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
+#![warn(clippy::all, clippy::pedantic)]
 #![warn(
     clippy::empty_structs_with_brackets,
     clippy::exit,
