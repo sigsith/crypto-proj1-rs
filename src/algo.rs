@@ -62,14 +62,93 @@ pub fn try_disprove_pair(
 ) -> bool {
     let noise = ciphertext.len() - plaintext.len();
     // 1. Direct length comparison.
-    let ciphertext_pop = bytecount::count(ciphertext, ciphertext_symbol);
-    let plaintext_pop = bytecount::count(plaintext, plaintext_symbol);
-    if ciphertext_pop < plaintext_pop || ciphertext_pop > plaintext_pop + noise
-    {
+    if test_direct_length(
+        ciphertext_symbol,
+        plaintext_symbol,
+        ciphertext,
+        plaintext,
+        noise,
+    ) {
         stats.increment_length_disproof();
         return true;
     }
+    // 2. Compare alignments
+    // Given that ciphertext is just a tranform of the plaintext with extra
+    // noise, the coorespoonding ciphertext symbol cannot be more than an offset
+    // away from the plaintext symbol
+
+    // 2.1 Left alignment:
+    if test_left_alignment(
+        ciphertext_symbol,
+        plaintext_symbol,
+        ciphertext,
+        plaintext,
+        noise,
+    ) {
+        stats.increment_left_alignment_disproof();
+        return true;
+    }
     false
+}
+
+fn test_direct_length(
+    ciphertext_symbol: u8,
+    plaintext_symbol: u8,
+    ciphertext: &[u8],
+    plaintext: &[u8],
+    noise: usize,
+) -> bool {
+    let ciphertext_pop = bytecount::count(ciphertext, ciphertext_symbol);
+    let plaintext_pop = bytecount::count(plaintext, plaintext_symbol);
+    ciphertext_pop < plaintext_pop || ciphertext_pop > plaintext_pop + noise
+}
+
+fn test_left_alignment(
+    ciphertext_symbol: u8,
+    plaintext_symbol: u8,
+    ciphertext: &[u8],
+    plaintext: &[u8],
+    noise: usize,
+) -> bool {
+    let mut plaintext_index = 0;
+    let mut noise_used = 0;
+    while plaintext_index != plaintext.len() {
+        if plaintext[plaintext_index] == plaintext_symbol {
+            match check_left_alignment_offset(
+                plaintext_index,
+                ciphertext,
+                ciphertext_symbol,
+                noise_used,
+                noise,
+            ) {
+                Ok(extra) => noise_used += extra,
+                Err(_) => return true,
+            }
+        }
+        plaintext_index += 1;
+    }
+    false
+}
+
+// Check if it is plausible for the plaintext index to map to the cipher text,
+// given the noise tolerance.
+// If it is plausible , return the noise used.
+// If it is not, return Err.
+fn check_left_alignment_offset(
+    plaintext_index: usize,
+    ciphertext: &[u8],
+    ciphertext_symbol: u8,
+    noise_used: usize,
+    total_noise: usize,
+) -> Result<usize, ()> {
+    let starting_index = plaintext_index + noise_used;
+    let ending_index = plaintext_index + total_noise;
+    for i in starting_index..=ending_index {
+        if ciphertext[i] == ciphertext_symbol {
+            return Ok(i - starting_index);
+        }
+    }
+    Err(())
 }
 
 fn validate_input(
