@@ -1,4 +1,18 @@
 use rand::{seq::SliceRandom, Rng};
+pub fn gen_challenge<T: Rng>(
+    plaintext_candidates: &[&str],
+    randomness: f64,
+    rng: &mut T,
+) -> String {
+    let key = gen_key(rng);
+    let Some(chosen) = plaintext_candidates.choose(rng) else {
+        return String::new();
+    };
+    let plaintext_vec = string_to_vec(chosen);
+    let result = mono_alpha_sub(&plaintext_vec, &key, randomness, rng);
+    slice_to_string(&result)
+}
+
 pub fn mono_alpha_sub<T: Rng>(
     plaintext: &[u8],
     key: &[u8; 27],
@@ -26,7 +40,7 @@ pub fn string_to_vec(text: &str) -> Vec<u8> {
     text.chars().map(char_to_u8).collect()
 }
 
-fn vec_to_string(vector: &Vec<u8>) -> String {
+fn slice_to_string(vector: &[u8]) -> String {
     vector.iter().map(|num: &u8| u8_to_char(*num)).collect()
 }
 

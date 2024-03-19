@@ -2,6 +2,15 @@
 name = "crypto-proj1-rs"
 version = "0.1.0"
 edition = "2021"
+default-run = "main_function"
+
+[[bin]]
+name = "main_function"
+path = "src/main.rs"
+
+[[bin]]
+name = "encryption-example"
+path = "src/bin/encryption-example.rs"
 
 [dependencies]
 rand = "0.8.5"
