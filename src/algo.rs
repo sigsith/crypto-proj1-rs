@@ -1,3 +1,5 @@
+use crate::encryption::string_to_vec;
+
 use self::disproof_table::DisproofTable;
 
 pub fn apply_cryptanalysis(
@@ -21,10 +23,42 @@ pub fn check_plaintext_ciphertext_pair(
     plaintext: &str,
     ciphertext: &str,
 ) -> bool {
+    // 0. Convert plaintext and ciphertext to integer representations.
+    let plaintext = string_to_vec(plaintext);
+    let ciphertext = string_to_vec(ciphertext);
     // 1. Try each combinations of key-value pair to eliminate impossible pairs
     let mut disproof_table = DisproofTable::new();
     for ciphertext_symbol in 0..27 {
-        for plaintext_symbol in 0..27 {}
+        for plaintext_symbol in 0..27 {
+            if try_disprove_pair(
+                ciphertext_symbol,
+                plaintext_symbol,
+                &ciphertext,
+                &plaintext,
+            ) {
+                disproof_table
+                    .write_disproven_pair(ciphertext_symbol, plaintext_symbol)
+            }
+        }
+    }
+    println!("{disproof_table}");
+    false
+}
+
+// Return whether the pair is disproven
+pub fn try_disprove_pair(
+    ciphertext_symbol: u8,
+    plaintext_symbol: u8,
+    ciphertext: &[u8],
+    plaintext: &[u8],
+) -> bool {
+    let noise = ciphertext.len() - plaintext.len();
+    // 1. Direct length comparison.
+    let ciphertext_pop = bytecount::count(ciphertext, ciphertext_symbol);
+    let plaintext_pop = bytecount::count(plaintext, plaintext_symbol);
+    if ciphertext_pop < plaintext_pop || ciphertext_pop > plaintext_pop + noise
+    {
+        return true;
     }
     false
 }

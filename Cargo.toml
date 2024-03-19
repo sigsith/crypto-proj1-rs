@@ -18,3 +18,4 @@ path = "src/bin/test-decryption.rs"
 
 [dependencies]
 rand = "0.8.5"
+bytecount = "0.6.7"
