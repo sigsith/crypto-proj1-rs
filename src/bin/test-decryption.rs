@@ -3,6 +3,7 @@ use std::env;
 use crypto_proj1_rs::{
     algo::apply_cryptanalysis, encryption::gen_challenge, plaintext,
 };
+use rand::SeedableRng;
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
@@ -22,7 +23,8 @@ fn main() {
         return;
     }
     let plaintexts = plaintext::get_hardcoded_plaintexts();
-    let mut rng = rand::thread_rng();
+    // let mut rng = rand::thread_rng();
+    let mut rng = rand::rngs::StdRng::from_seed([42; 32]);
     let mut correct_guess = 0;
     let mut incorrect_guess = 0;
     let mut unable_to_guess = 0;

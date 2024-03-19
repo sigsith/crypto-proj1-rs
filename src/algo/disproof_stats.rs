@@ -4,6 +4,7 @@ use std::fmt::Display;
 pub struct DisproofStatsCollector {
     length_disproof: usize,
     left_alignment_disproof: usize,
+    right_alignment_disproof: usize,
 }
 
 impl DisproofStatsCollector {
@@ -16,11 +17,16 @@ impl DisproofStatsCollector {
     pub fn increment_left_alignment_disproof(&mut self) {
         self.left_alignment_disproof += 1;
     }
+    pub fn increment_right_alignment_disproof(&mut self) {
+        self.right_alignment_disproof += 1;
+    }
 }
 
 impl Display for DisproofStatsCollector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let total = self.length_disproof + self.left_alignment_disproof;
+        let total = self.length_disproof
+            + self.left_alignment_disproof
+            + self.right_alignment_disproof;
         let max_dispoof = f64::from(27 * 27);
         writeln!(
             f,
@@ -32,6 +38,12 @@ impl Display for DisproofStatsCollector {
             f,
             "Left_alighment_disproof",
             self.left_alignment_disproof,
+            total,
+        )?;
+        write_one_entry(
+            f,
+            "Right_alighment_disproof",
+            self.right_alignment_disproof,
             total,
         )
     }

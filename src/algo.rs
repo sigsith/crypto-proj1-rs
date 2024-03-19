@@ -113,6 +113,17 @@ pub fn try_disprove_pair(
         stats.increment_left_alignment_disproof();
         return true;
     }
+    // // 2.2 Right alignment:
+    // if test_right_alignment(
+    //     ciphertext_symbol,
+    //     plaintext_symbol,
+    //     ciphertext,
+    //     plaintext,
+    //     noise,
+    // ) {
+    //     stats.increment_right_alignment_disproof();
+    //     return true;
+    // }
     false
 }
 
@@ -175,6 +186,56 @@ fn check_left_alignment_offset(
     }
     Err(())
 }
+
+// // Similar logic as left alignment
+// fn test_right_alignment(
+//     ciphertext_symbol: u8,
+//     plaintext_symbol: u8,
+//     ciphertext: &[u8],
+//     plaintext: &[u8],
+//     noise: usize,
+// ) -> bool {
+//     let mut plaintext_index = plaintext.len() - 1;
+//     let mut noise_used = 0;
+//     loop {
+//         if plaintext[plaintext_index] == plaintext_symbol {
+//             let right_aligned_index =
+//                 ciphertext.len() - (plaintext.len() - plaintext_index);
+//             match check_right_alignment_offset(
+//                 right_aligned_index,
+//                 ciphertext,
+//                 ciphertext_symbol,
+//                 noise_used,
+//                 noise,
+//             ) {
+//                 Ok(extra) => noise_used += extra,
+//                 Err(_) => return true,
+//             }
+//         }
+//         if plaintext_index == 0 {
+//             break;
+//         }
+//         plaintext_index -= 1
+//     }
+//     false
+// }
+
+// fn check_right_alignment_offset(
+//     right_aligned_start: usize,
+//     ciphertext: &[u8],
+//     ciphertext_symbol: u8,
+//     noise_used: usize,
+//     total_noise: usize,
+// ) -> Result<usize, ()> {
+//     let starting_index = right_aligned_start - noise_used;
+//     let ending_index = right_aligned_start - total_noise;
+//     for i in (ending_index..=starting_index).rev() {
+//         if ciphertext[i] == ciphertext_symbol {
+//             return Ok(starting_index - i);
+//         }
+//     }
+//     Err(())
+// }
 
 fn validate_input(
     plaintext_candidates: &[&str],
