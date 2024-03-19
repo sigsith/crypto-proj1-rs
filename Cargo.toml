@@ -12,5 +12,9 @@ path = "src/main.rs"
 name = "encryption-example"
 path = "src/bin/encryption-example.rs"
 
+[[bin]]
+name = "test-decryption"
+path = "src/bin/test-decryption.rs"
+
 [dependencies]
 rand = "0.8.5"

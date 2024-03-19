@@ -3,14 +3,15 @@ pub fn gen_challenge<T: Rng>(
     plaintext_candidates: &[&str],
     randomness: f64,
     rng: &mut T,
-) -> String {
+) -> (String, String) {
     let key = gen_key(rng);
     let Some(chosen) = plaintext_candidates.choose(rng) else {
-        return String::new();
+        return (String::new(), String::new());
     };
     let plaintext_vec = string_to_vec(chosen);
     let result = mono_alpha_sub(&plaintext_vec, &key, randomness, rng);
-    slice_to_string(&result)
+    let ciphertext = slice_to_string(&result);
+    ((*chosen).to_string(), ciphertext)
 }
 
 pub fn mono_alpha_sub<T: Rng>(

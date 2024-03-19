@@ -5,8 +5,10 @@ fn main() {
     let mut rng = rand::thread_rng();
     let randomness = 0.2;
     for _ in 0..4 {
-        let encrypted =
+        let (plaintext, ciphertext) =
             encryption::gen_challenge(&plaintexts, randomness, &mut rng);
-        println!("{encrypted}")
+        println!("plaintext:{plaintext}");
+        println!("ciphertext:{ciphertext}");
+        println!();
     }
 }
