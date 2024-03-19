@@ -14,16 +14,28 @@ pub fn apply_cryptanalysis(
     let (plaintext_len, ciphertext_len) =
         validate_input(plaintext_candidates, ciphertext).ok()?;
     // Try each plaintext-ciphertext pair to see if any matches
-    for plaintext in plaintext_candidates {
-        if check_plaintext_ciphertext_pair(plaintext, ciphertext) {
-            return Some((*plaintext).to_string());
+    let mut disproved = vec![false; plaintext_candidates.len()];
+    for i in 0..plaintext_candidates.len() {
+        if disprove_plaintext_ciphertext_pair(
+            plaintext_candidates[i],
+            ciphertext,
+        ) {
+            disproved[i] = true;
+        }
+    }
+    let num_disproven = disproved.iter().filter(|&x| *x).count();
+    if num_disproven + 1 == disproved.len() {
+        for i in 0..disproved.len() {
+            if !disproved[i] {
+                return Some(plaintext_candidates[i].to_string());
+            }
         }
     }
     None
 }
 
-// Return whether it is the case that the plaintext is mapped to the ciphertext.
-pub fn check_plaintext_ciphertext_pair(
+// Return whether it is impossible for the plaintext to map to the ciphertext.
+pub fn disprove_plaintext_ciphertext_pair(
     plaintext: &str,
     ciphertext: &str,
 ) -> bool {
@@ -45,6 +57,19 @@ pub fn check_plaintext_ciphertext_pair(
                 disproof_table
                     .write_disproven_pair(ciphertext_symbol, plaintext_symbol)
             }
+        }
+        if disproof_table
+            .is_ciphertext_symbol_fully_eliminated(ciphertext_symbol)
+        {
+            println!("Disproven through ciphertext elimination!");
+            return true;
+        }
+    }
+    for plaintext_symbol in 0..27 {
+        if disproof_table.is_plaintext_symbol_fully_eliminated(plaintext_symbol)
+        {
+            println!("Disproven through plaintext elimination!");
+            return true;
         }
     }
     println!("{disproof_table}");

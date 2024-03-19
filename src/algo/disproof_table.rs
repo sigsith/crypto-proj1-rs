@@ -27,6 +27,25 @@ impl DisproofTable {
         self.cipher_to_plain[ciphertext_symbol as usize]
             [plaintext_symbol as usize] = true
     }
+    pub fn is_ciphertext_symbol_fully_eliminated(
+        &self,
+        ciphertext_symbol: u8,
+    ) -> bool {
+        self.cipher_to_plain[ciphertext_symbol as usize]
+            .iter()
+            .all(|&item| item)
+    }
+    pub fn is_plaintext_symbol_fully_eliminated(
+        &self,
+        plaintext_symbol: u8,
+    ) -> bool {
+        for i in 0..27 {
+            if !self.cipher_to_plain[i][plaintext_symbol as usize] {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 impl Display for DisproofTable {
