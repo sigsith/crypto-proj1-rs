@@ -1,6 +1,10 @@
-use crate::encryption::string_to_vec;
+mod disproof_stats;
+mod disproof_table;
 
 use self::disproof_table::DisproofTable;
+use crate::{
+    algo::disproof_stats::DisproofStatsCollector, encryption::string_to_vec,
+};
 
 pub fn apply_cryptanalysis(
     plaintext_candidates: &[&str],
@@ -28,6 +32,7 @@ pub fn check_plaintext_ciphertext_pair(
     let ciphertext = string_to_vec(ciphertext);
     // 1. Try each combinations of key-value pair to eliminate impossible pairs
     let mut disproof_table = DisproofTable::new();
+    let mut disproof_stats = DisproofStatsCollector::new();
     for ciphertext_symbol in 0..27 {
         for plaintext_symbol in 0..27 {
             if try_disprove_pair(
@@ -35,6 +40,7 @@ pub fn check_plaintext_ciphertext_pair(
                 plaintext_symbol,
                 &ciphertext,
                 &plaintext,
+                &mut disproof_stats,
             ) {
                 disproof_table
                     .write_disproven_pair(ciphertext_symbol, plaintext_symbol)
@@ -42,6 +48,7 @@ pub fn check_plaintext_ciphertext_pair(
         }
     }
     println!("{disproof_table}");
+    println!("{disproof_stats}");
     false
 }
 
@@ -51,6 +58,7 @@ pub fn try_disprove_pair(
     plaintext_symbol: u8,
     ciphertext: &[u8],
     plaintext: &[u8],
+    stats: &mut DisproofStatsCollector,
 ) -> bool {
     let noise = ciphertext.len() - plaintext.len();
     // 1. Direct length comparison.
@@ -58,12 +66,11 @@ pub fn try_disprove_pair(
     let plaintext_pop = bytecount::count(plaintext, plaintext_symbol);
     if ciphertext_pop < plaintext_pop || ciphertext_pop > plaintext_pop + noise
     {
+        stats.increment_length_disproof();
         return true;
     }
     false
 }
-
-mod disproof_table;
 
 fn validate_input(
     plaintext_candidates: &[&str],
