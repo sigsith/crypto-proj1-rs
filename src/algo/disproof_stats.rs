@@ -5,6 +5,7 @@ pub struct DisproofStatsCollector {
     length_disproof: usize,
     left_alignment_disproof: usize,
     right_alignment_disproof: usize,
+    secondary_disproof: usize,
 }
 
 impl DisproofStatsCollector {
@@ -20,13 +21,17 @@ impl DisproofStatsCollector {
     pub fn increment_right_alignment_disproof(&mut self) {
         self.right_alignment_disproof += 1;
     }
+    pub fn increment_secondary_disproof(&mut self) {
+        self.secondary_disproof += 1;
+    }
 }
 
 impl Display for DisproofStatsCollector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let total = self.length_disproof
             + self.left_alignment_disproof
-            + self.right_alignment_disproof;
+            + self.right_alignment_disproof
+            + self.secondary_disproof;
         let max_dispoof = f64::from(27 * 27);
         writeln!(
             f,
@@ -45,7 +50,8 @@ impl Display for DisproofStatsCollector {
             "Right_alighment_disproof",
             self.right_alignment_disproof,
             total,
-        )
+        )?;
+        write_one_entry(f, "Secondary_disproof", self.secondary_disproof, total)
     }
 }
 

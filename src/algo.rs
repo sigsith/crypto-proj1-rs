@@ -16,12 +16,18 @@ pub fn apply_cryptanalysis(
     // Try each plaintext-ciphertext pair to see if any matches
     let mut disproved = vec![false; plaintext_candidates.len()];
     for i in 0..plaintext_candidates.len() {
+        let mut disprove_table = DisproofTable::new();
+        let mut disproof_stats = DisproofStatsCollector::new();
         if disprove_plaintext_ciphertext_pair(
             plaintext_candidates[i],
             ciphertext,
+            &mut disprove_table,
+            &mut disproof_stats,
         ) {
             disproved[i] = true;
         }
+        println!("{disprove_table}");
+        println!("{disproof_stats}");
     }
     let num_disproven = disproved.iter().filter(|&x| *x).count();
     if num_disproven + 1 == disproved.len() {
@@ -38,13 +44,13 @@ pub fn apply_cryptanalysis(
 pub fn disprove_plaintext_ciphertext_pair(
     plaintext: &str,
     ciphertext: &str,
+    disproof_table: &mut DisproofTable,
+    disproof_stats: &mut DisproofStatsCollector,
 ) -> bool {
     // 0. Convert plaintext and ciphertext to integer representations.
     let plaintext = string_to_vec(plaintext);
     let ciphertext = string_to_vec(ciphertext);
     // 1. Try each combinations of key-value pair to eliminate impossible pairs
-    let mut disproof_table = DisproofTable::new();
-    let mut disproof_stats = DisproofStatsCollector::new();
     for ciphertext_symbol in 0..27 {
         for plaintext_symbol in 0..27 {
             if try_disprove_pair(
@@ -52,7 +58,7 @@ pub fn disprove_plaintext_ciphertext_pair(
                 plaintext_symbol,
                 &ciphertext,
                 &plaintext,
-                &mut disproof_stats,
+                disproof_stats,
             ) {
                 disproof_table
                     .write_disproven_pair(ciphertext_symbol, plaintext_symbol)
@@ -72,9 +78,146 @@ pub fn disprove_plaintext_ciphertext_pair(
             return true;
         }
     }
-    println!("{disproof_table}");
-    println!("{disproof_stats}");
+    let mut valid_pairs = disproof_table.find_all_proven_pairs();
+    if check_conflicting_valid_pairs(&valid_pairs) {
+        println!("Disproven through conflicting valid_pairs");
+        return true;
+    }
+    // 2. Secondary disproofs. Combining one proven pair and one unproven pair,
+    // to see if the resulting pair enables plaintext segments are vali
+    // substring of the correponding ciphertext segments
+    let is_disproven = secondary_disproof(
+        &mut valid_pairs,
+        disproof_table,
+        &ciphertext,
+        &plaintext,
+        disproof_stats,
+    );
+    if is_disproven {
+        println!("Disproven through secondary elimination!");
+        return true;
+    }
     false
+}
+
+// Valid pairs cannot share ciphertext or plaintext symbols
+pub fn check_conflicting_valid_pairs(valid_pairs: &[(u8, u8)]) -> bool {
+    let mut registered_ciphertext_symbols = [false; 27];
+    let mut registered_plaintext_symbols = [false; 27];
+    for (ciphertext_symbol, plaintext_symbol) in valid_pairs {
+        if registered_ciphertext_symbols[*ciphertext_symbol as usize] {
+            return true;
+        }
+        registered_ciphertext_symbols[*ciphertext_symbol as usize] = true;
+        if registered_plaintext_symbols[*plaintext_symbol as usize] {
+            return true;
+        }
+        registered_plaintext_symbols[*plaintext_symbol as usize] = true
+    }
+    false
+}
+
+pub fn secondary_disproof(
+    valid_pairs: &mut Vec<(u8, u8)>,
+    disproof_table: &mut DisproofTable,
+    ciphertext: &[u8],
+    plaintext: &[u8],
+    stats: &mut DisproofStatsCollector,
+) -> bool {
+    let mut valid_index = 0;
+    // For each valid_pair, check against pairs that are neither disproven, nor
+    // necessarily valid.
+    while valid_index < valid_pairs.len() {
+        let valid_pair = valid_pairs[valid_index];
+        for cipher_symbol in 0..27 {
+            for plaintext_symbol in 0..27 {
+                if disproof_table.is_disproven(cipher_symbol, plaintext_symbol)
+                {
+                    continue;
+                }
+                let test_pair = (cipher_symbol, plaintext_symbol);
+                if valid_pairs.contains(&test_pair) {
+                    continue;
+                }
+                let is_disproven = try_disprove_double_pair(
+                    valid_pair, test_pair, ciphertext, plaintext,
+                );
+                if is_disproven {
+                    stats.increment_secondary_disproof();
+                    disproof_table
+                        .write_disproven_pair(cipher_symbol, plaintext_symbol);
+                    // Check if updated pair lead to total elimination
+                    if disproof_table
+                        .is_ciphertext_symbol_fully_eliminated(cipher_symbol)
+                        || disproof_table.is_plaintext_symbol_fully_eliminated(
+                            plaintext_symbol,
+                        )
+                    {
+                        return true;
+                    }
+                    // Check if updated pair lead to more valid pairs
+                    if let Some(valid_pair) = disproof_table
+                        .check_valid_pair_at_cipher_symbol(cipher_symbol)
+                    {
+                        if !valid_pairs.contains(&valid_pair) {
+                            valid_pairs.push(valid_pair)
+                        }
+                    }
+                    if let Some(valid_pair) = disproof_table
+                        .check_valid_pair_at_plaintext_symbol(plaintext_symbol)
+                    {
+                        if !valid_pairs.contains(&valid_pair) {
+                            valid_pairs.push(valid_pair)
+                        }
+                    }
+                    // Check if these valid pairs are in conflicts
+                    // if check_conflicting_valid_pairs(valid_pairs) {
+                    //     return true;
+                    // }
+                }
+            }
+        }
+        valid_index += 1;
+    }
+    false
+}
+
+pub fn try_disprove_double_pair(
+    pair1: (u8, u8),
+    pair2: (u8, u8),
+    ciphertext: &[u8],
+    plaintext: &[u8],
+) -> bool {
+    let (cipher1, plain1) = pair1;
+    let (cipher2, plain2) = pair2;
+    let mut cipher_idx = 0;
+    for &plaintext_symbol in plaintext {
+        let cipher_symbol = match plaintext_symbol {
+            plain1 => cipher1,
+            plain2 => cipher2,
+            _ => continue,
+        };
+        match find_cipher_symbol(ciphertext, cipher_idx, cipher_symbol) {
+            Ok(found_idx) => cipher_idx = found_idx + 1,
+            Err(()) => return true,
+        }
+    }
+    false
+}
+
+fn find_cipher_symbol(
+    ciphertext: &[u8],
+    start: usize,
+    symbol: u8,
+) -> Result<usize, ()> {
+    let mut index = start;
+    while index < ciphertext.len() {
+        if ciphertext[index] == symbol {
+            return Ok(index);
+        }
+        index += 1;
+    }
+    Err(())
 }
 
 // Return whether the pair is disproven
