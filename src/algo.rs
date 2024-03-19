@@ -4,7 +4,8 @@ pub fn apply_cryptanalysis(
 ) -> Option<String> {
     let (plaintext_len, ciphertext_len) =
         verify_input(plaintext_candidates, ciphertext).ok()?;
-    Some("passed".to_string())
+    Some(plaintext_candidates[0].to_owned())
+    // Some("passed".to_string())
     // None
 }
 

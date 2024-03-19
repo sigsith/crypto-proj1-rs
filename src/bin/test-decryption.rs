@@ -23,6 +23,9 @@ fn main() {
     }
     let plaintexts = plaintext::get_hardcoded_plaintexts();
     let mut rng = rand::thread_rng();
+    let mut correct_guess = 0;
+    let mut incorrect_guess = 0;
+    let mut unable_to_guess = 0;
     for _ in 0..iterations {
         let (plaintext, cipher_text) =
             gen_challenge(&plaintexts, randomness, &mut rng);
@@ -30,16 +33,20 @@ fn main() {
         match result {
             Some(text) => {
                 if text == *plaintext {
-                    println!("Correctly chosen plaintext");
+                    correct_guess += 1;
                 } else {
-                    println!("Wrong plaintext chosen");
+                    incorrect_guess += 1;
                 }
             }
             None => {
-                println!("Unable to find the corresponding plaintext");
+                unable_to_guess += 1;
             }
         }
     }
+    println!("Correct guesses: {correct_guess}, Incorrect guesses: {incorrect_guess}, Unable to guess: {unable_to_guess}");
+    let success_rate = correct_guess as f64
+        / (correct_guess + incorrect_guess + unable_to_guess) as f64;
+    println!("Success rate: {:.2}%", success_rate * 100.0);
 }
 
 fn print_help(args: &[String]) {
