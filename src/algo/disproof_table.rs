@@ -88,7 +88,7 @@ impl DisproofTable {
                 return None;
             }
         }
-        Some((ciphertext_symbol, false_plaintext as u8))
+        Some((ciphertext_symbol, false_plaintext))
     }
 
     pub fn check_valid_pair_at_plaintext_symbol(
@@ -106,7 +106,13 @@ impl DisproofTable {
                 return None;
             }
         }
-        Some((false_ciphertext as u8, plaintext_symbol))
+        Some((false_ciphertext, plaintext_symbol))
+    }
+}
+
+impl Default for DisproofTable {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

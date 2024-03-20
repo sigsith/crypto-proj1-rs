@@ -6,13 +6,17 @@ use crate::{
     algo::disproof_stats::DisproofStatsCollector, encryption::string_to_vec,
 };
 
+#[cfg(feature = "metrics")]
+use crate::{get_counter, inc_counter};
+
 pub fn apply_cryptanalysis(
     plaintext_candidates: &[&str],
     ciphertext: &str,
 ) -> Option<String> {
+    #[cfg(feature = "metrics")]
+    inc_counter!("total_runs");
     // Validate that the plaintexts and the ciphertext are coorectly formatted.
-    let (plaintext_len, ciphertext_len) =
-        validate_input(plaintext_candidates, ciphertext).ok()?;
+    validate_input(plaintext_candidates, ciphertext).ok()?;
     // Try each plaintext-ciphertext pair to see if any matches
     let mut disproved = vec![false; plaintext_candidates.len()];
     for i in 0..plaintext_candidates.len() {
@@ -188,14 +192,14 @@ pub fn try_disprove_double_pair(
     ciphertext: &[u8],
     plaintext: &[u8],
 ) -> bool {
-    let (cipher1, plain1) = pair1;
-    let (cipher2, plain2) = pair2;
     let mut cipher_idx = 0;
     for &plaintext_symbol in plaintext {
-        let cipher_symbol = match plaintext_symbol {
-            plain1 => cipher1,
-            plain2 => cipher2,
-            _ => continue,
+        let cipher_symbol = if plaintext_symbol == pair1.1 {
+            pair1.0
+        } else if plaintext_symbol == pair2.1 {
+            pair2.0
+        } else {
+            continue;
         };
         match find_cipher_symbol(ciphertext, cipher_idx, cipher_symbol) {
             Ok(found_idx) => cipher_idx = found_idx + 1,
@@ -301,7 +305,7 @@ fn test_left_alignment(
                 noise,
             ) {
                 Ok(extra) => noise_used += extra,
-                Err(_) => return true,
+                Err(()) => return true,
             }
         }
         plaintext_index += 1;
@@ -383,7 +387,7 @@ fn check_left_alignment_offset(
 fn validate_input(
     plaintext_candidates: &[&str],
     ciphertext: &str,
-) -> Result<(usize, usize), ()> {
+) -> Result<(), ()> {
     if plaintext_candidates.is_empty() {
         return Err(());
     }
@@ -400,7 +404,7 @@ fn validate_input(
     if ciphertext.len() < first_length {
         return Err(());
     }
-    Ok((first_length, ciphertext.len()))
+    Ok(())
 }
 
 fn is_lowercase_or_space(s: &str) -> bool {

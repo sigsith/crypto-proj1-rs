@@ -29,4 +29,6 @@
 )]
 pub mod algo;
 pub mod encryption;
+#[cfg(feature = "metrics")]
+pub mod metrics;
 pub mod plaintext;
