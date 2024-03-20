@@ -2,7 +2,7 @@ mod disproof_table;
 
 use crate::encryption::string_to_vec;
 use disproof_table::DisproofTable;
-use rand::{seq::SliceRandom, thread_rng};
+use rand::{seq::SliceRandom, thread_rng, Rng};
 
 #[cfg(feature = "metrics")]
 use crate::{get_counter, inc_counter, inc_counter_by};
@@ -38,12 +38,15 @@ pub fn apply_cryptanalysis(
     // let random_pick = not_refuted.choose(&mut rng)?;
     // Some(plaintext_candidates[*random_pick].to_owned())
     let ciphertext_dist =
-        calculate_frequency_distribution(&string_to_vec(ciphertext));
-    let mut min_diff = usize::MAX;
+        calculate_frequency_distribution(&string_to_vec(ciphertext), 0);
+    let mut min_diff = f64::MAX;
     let mut best = 0;
     for item in not_refuted {
         let plaintext = string_to_vec(plaintext_candidates[item]);
-        let plaintext_dist = calculate_frequency_distribution(&plaintext);
+        let plaintext_dist = calculate_frequency_distribution(
+            &plaintext,
+            ciphertext.len() - plaintext.len(),
+        );
         let diff =
             calculate_overall_difference(&plaintext_dist, &ciphertext_dist);
         if diff < min_diff {
@@ -54,25 +57,26 @@ pub fn apply_cryptanalysis(
     Some(plaintext_candidates[best].to_owned())
 }
 
-fn calculate_frequency_distribution(text: &[u8]) -> [usize; 27] {
-    let mut frequency_distribution = [0; 27];
+fn calculate_frequency_distribution(text: &[u8], noise: usize) -> [f64; 27] {
+    let mut frequency_distribution = [0u64; 27];
     for &symbol in text {
         frequency_distribution[symbol as usize] += 1;
     }
     frequency_distribution.sort_unstable();
-    frequency_distribution
+    let mut float_distribution = [0.0; 27];
+    for i in 0..27 {
+        let counts = frequency_distribution[i] as f64;
+        float_distribution[i] =
+            (counts + noise as f64 / 27.0) / (text.len() + noise) as f64;
+    }
+    float_distribution
 }
 
-fn calculate_overall_difference(
-    sorted_a: &[usize],
-    sorted_b: &[usize],
-) -> usize {
+fn calculate_overall_difference(sorted_a: &[f64], sorted_b: &[f64]) -> f64 {
     sorted_a
         .iter()
         .zip(sorted_b.iter())
-        .fold(0, |acc, (&a, &b)| {
-            acc + (a as isize - b as isize).unsigned_abs()
-        })
+        .fold(0.0, |acc, (&a, &b)| acc + (a - b).abs())
 }
 
 pub fn summarize_metrics() {
