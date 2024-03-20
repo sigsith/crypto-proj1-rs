@@ -20,7 +20,7 @@ pub fn apply_cryptanalysis(
         let mut disprove_table = DisproofTable::new();
         #[cfg(feature = "metrics")]
         inc_counter!("n_plaintexts");
-        if disprove(plaintext, ciphertext, &mut disprove_table) {
+        if disprove_plaintext(plaintext, ciphertext, &mut disprove_table) {
             #[cfg(feature = "metrics")]
             inc_counter!("n_disproven_plaintexts");
         } else {
@@ -41,17 +41,39 @@ pub fn summarize_metrics() {
     {
         let total_runs = get_counter!("total_runs");
         println!("Total runs: {total_runs}");
+        println!("Plaintext refutation stats:");
         println!(
-            "Portion of plaintexts disproven: {:.2}%",
+            "\tPortion of plaintexts disproven: {:.2}%",
             get_counter!("n_disproven_plaintexts") as f64
                 / get_counter!("n_plaintexts") as f64
                 * 100.0
-        )
+        );
+        println!("Pair disproof stats:");
+        let total_pair_disproof_attempts =
+            get_counter!("pair_disproof_attempts");
+        println!(
+            "\tBy length comparison: {:.2}%",
+            get_counter!("pair_disproof_lenth_cmp") as f64
+                / total_pair_disproof_attempts as f64
+                * 100.0
+        );
+        println!(
+            "\tBy alignment: {:.2}%",
+            get_counter!("pair_disproof_align") as f64
+                / total_pair_disproof_attempts as f64
+                * 100.0
+        );
+        println!(
+            "\tFailed: {:.2}%",
+            get_counter!("pair_disproof_fail") as f64
+                / total_pair_disproof_attempts as f64
+                * 100.0
+        );
     }
 }
 
-// Return whether it is impossible for the plaintext to map to the ciphertext.
-pub fn disprove(
+// Returns whether it is impossible for the plaintext to map to the ciphertext.
+pub fn disprove_plaintext(
     plaintext: &str,
     ciphertext: &str,
     disproof_table: &mut DisproofTable,
@@ -62,7 +84,7 @@ pub fn disprove(
     // 1. Try each combinations of key-value pair to eliminate impossible pairs
     for ciphertext_symbol in 0..27 {
         for plaintext_symbol in 0..27 {
-            if try_disprove_pair(
+            if disprove_pair(
                 ciphertext_symbol,
                 plaintext_symbol,
                 &ciphertext,
@@ -221,13 +243,15 @@ fn find_cipher_symbol(
     Err(())
 }
 
-// Return whether the pair is disproven
-pub fn try_disprove_pair(
+// Returns whether a substitution pair is disproven.
+pub fn disprove_pair(
     ciphertext_symbol: u8,
     plaintext_symbol: u8,
     ciphertext: &[u8],
     plaintext: &[u8],
 ) -> bool {
+    #[cfg(feature = "metrics")]
+    inc_counter!("pair_disproof_attempts");
     let noise = ciphertext.len() - plaintext.len();
     // 1. Direct length comparison.
     if test_direct_length(
@@ -237,6 +261,8 @@ pub fn try_disprove_pair(
         plaintext,
         noise,
     ) {
+        #[cfg(feature = "metrics")]
+        inc_counter!("pair_disproof_lenth_cmp");
         return true;
     }
     // 2. Compare alignments
@@ -244,27 +270,19 @@ pub fn try_disprove_pair(
     // noise, the coorespoonding ciphertext symbol cannot be more than an offset
     // away from the plaintext symbol
 
-    // 2.1 Left alignment:
-    if test_left_alignment(
+    if test_alignment(
         ciphertext_symbol,
         plaintext_symbol,
         ciphertext,
         plaintext,
         noise,
     ) {
+        #[cfg(feature = "metrics")]
+        inc_counter!("pair_disproof_align");
         return true;
     }
-    // // 2.2 Right alignment:
-    // if test_right_alignment(
-    //     ciphertext_symbol,
-    //     plaintext_symbol,
-    //     ciphertext,
-    //     plaintext,
-    //     noise,
-    // ) {
-    //     stats.increment_right_alignment_disproof();
-    //     return true;
-    // }
+    #[cfg(feature = "metrics")]
+    inc_counter!("pair_disproof_fail");
     false
 }
 
@@ -280,7 +298,7 @@ fn test_direct_length(
     ciphertext_pop < plaintext_pop || ciphertext_pop > plaintext_pop + noise
 }
 
-fn test_left_alignment(
+fn test_alignment(
     ciphertext_symbol: u8,
     plaintext_symbol: u8,
     ciphertext: &[u8],
@@ -327,56 +345,6 @@ fn check_left_alignment_offset(
     }
     Err(())
 }
-
-// // Similar logic as left alignment
-// fn test_right_alignment(
-//     ciphertext_symbol: u8,
-//     plaintext_symbol: u8,
-//     ciphertext: &[u8],
-//     plaintext: &[u8],
-//     noise: usize,
-// ) -> bool {
-//     let mut plaintext_index = plaintext.len() - 1;
-//     let mut noise_used = 0;
-//     loop {
-//         if plaintext[plaintext_index] == plaintext_symbol {
-//             let right_aligned_index =
-//                 ciphertext.len() - (plaintext.len() - plaintext_index);
-//             match check_right_alignment_offset(
-//                 right_aligned_index,
-//                 ciphertext,
-//                 ciphertext_symbol,
-//                 noise_used,
-//                 noise,
-//             ) {
-//                 Ok(extra) => noise_used += extra,
-//                 Err(_) => return true,
-//             }
-//         }
-//         if plaintext_index == 0 {
-//             break;
-//         }
-//         plaintext_index -= 1
-//     }
-//     false
-// }
-
-// fn check_right_alignment_offset(
-//     right_aligned_start: usize,
-//     ciphertext: &[u8],
-//     ciphertext_symbol: u8,
-//     noise_used: usize,
-//     total_noise: usize,
-// ) -> Result<usize, ()> {
-//     let starting_index = right_aligned_start - noise_used;
-//     let ending_index = right_aligned_start - total_noise;
-//     for i in (ending_index..=starting_index).rev() {
-//         if ciphertext[i] == ciphertext_symbol {
-//             return Ok(starting_index - i);
-//         }
-//     }
-//     Err(())
-// }
 
 fn validate_input(
     plaintext_candidates: &[&str],
