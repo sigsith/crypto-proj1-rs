@@ -2,6 +2,7 @@ mod disproof_table;
 
 use crate::encryption::string_to_vec;
 use disproof_table::DisproofTable;
+use rand::{seq::SliceRandom, thread_rng};
 
 #[cfg(feature = "metrics")]
 use crate::{get_counter, inc_counter, inc_counter_by};
@@ -33,7 +34,9 @@ pub fn apply_cryptanalysis(
     }
     debug_assert!(!not_refuted.is_empty());
     // 3. Todo: Attempt to find out which plaintext is most likely.
-    None
+    let mut rng = thread_rng();
+    let random_pick = not_refuted.choose(&mut rng)?;
+    Some(plaintext_candidates[*random_pick].to_owned())
 }
 
 pub fn summarize_metrics() {
