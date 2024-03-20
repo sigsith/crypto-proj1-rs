@@ -12,7 +12,7 @@ fn main() {
         print_help(&args);
         return;
     }
-    let Ok(iterations) = args[1].parse::<usize>() else {
+    let Ok(iteration) = args[1].parse::<usize>() else {
         print_help(&args);
         return;
     };
@@ -24,13 +24,14 @@ fn main() {
         print_help(&args);
         return;
     }
+    println!("Iteration: {iteration}, Randomness: {randomness}");
     let plaintexts = plaintext::get_hardcoded_plaintexts();
     // let mut rng = rand::thread_rng();
     let mut rng = rand::rngs::StdRng::from_seed([42; 32]);
     let mut correct_guess = 0;
     let mut incorrect_guess = 0;
     let mut unable_to_guess = 0;
-    for _ in 0..iterations {
+    for _ in 0..iteration {
         let (plaintext, cipher_text) =
             gen_challenge(&plaintexts, randomness, &mut rng);
         let result = apply_cryptanalysis(&plaintexts, &cipher_text);

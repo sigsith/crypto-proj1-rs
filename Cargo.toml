@@ -15,10 +15,13 @@ path = "src/bin/encryption-example.rs"
 [[bin]]
 name = "test-decryption"
 path = "src/bin/test-decryption.rs"
-required_features = ["metrics"]
 
 [features]
 metrics = ["dep:once_cell"]
+
+[profile.release_assert]
+inherits = "release"
+debug-assertions = true
 
 [dependencies]
 rand = "0.8.5"

@@ -4,7 +4,7 @@ use crate::encryption::string_to_vec;
 use disproof_table::DisproofTable;
 
 #[cfg(feature = "metrics")]
-use crate::{get_counter, inc_counter, metrics::REGISTRY};
+use crate::{get_counter, inc_counter};
 
 pub fn apply_cryptanalysis(
     plaintext_candidates: &[&str],
@@ -12,40 +12,46 @@ pub fn apply_cryptanalysis(
 ) -> Option<String> {
     #[cfg(feature = "metrics")]
     inc_counter!("total_runs");
-    // Validate that the plaintexts and the ciphertext are coorectly formatted.
+    // 0. Validate input.
     validate_input(plaintext_candidates, ciphertext).ok()?;
-    // Try each plaintext-ciphertext pair to see if any matches
-    let mut disproved = vec![false; plaintext_candidates.len()];
-    for i in 0..plaintext_candidates.len() {
+    // 1. Attempt to disprove every plaintext candidate.
+    let mut not_refuted = Vec::new();
+    for (index, plaintext) in plaintext_candidates.iter().enumerate() {
         let mut disprove_table = DisproofTable::new();
-        if disprove_plaintext_ciphertext_pair(
-            plaintext_candidates[i],
-            ciphertext,
-            &mut disprove_table,
-        ) {
-            disproved[i] = true;
+        #[cfg(feature = "metrics")]
+        inc_counter!("n_plaintexts");
+        if disprove(plaintext, ciphertext, &mut disprove_table) {
+            #[cfg(feature = "metrics")]
+            inc_counter!("n_disproven_plaintexts");
+        } else {
+            not_refuted.push(index);
         }
     }
-    let num_disproven = disproved.iter().filter(|&x| *x).count();
-    if num_disproven + 1 == disproved.len() {
-        for i in 0..disproved.len() {
-            if !disproved[i] {
-                return Some(plaintext_candidates[i].to_string());
-            }
-        }
+    // 2. If there is exactly one plaintext not disproven, return it.
+    if not_refuted.len() == 1 {
+        return Some(plaintext_candidates[not_refuted[0]].to_owned());
     }
+    debug_assert!(!not_refuted.is_empty());
+    // 3. Todo: Attempt to find out which plaintext is most likely.
     None
 }
 
 pub fn summarize_metrics() {
     #[cfg(feature = "metrics")]
     {
-        println!("Total runs: {}", get_counter!("total_runs"));
+        let total_runs = get_counter!("total_runs");
+        println!("Total runs: {total_runs}");
+        println!(
+            "Portion of plaintexts disproven: {:.2}%",
+            get_counter!("n_disproven_plaintexts") as f64
+                / get_counter!("n_plaintexts") as f64
+                * 100.0
+        )
     }
 }
 
 // Return whether it is impossible for the plaintext to map to the ciphertext.
-pub fn disprove_plaintext_ciphertext_pair(
+pub fn disprove(
     plaintext: &str,
     ciphertext: &str,
     disproof_table: &mut DisproofTable,
