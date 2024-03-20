@@ -4,7 +4,7 @@ use crate::encryption::string_to_vec;
 use disproof_table::DisproofTable;
 
 #[cfg(feature = "metrics")]
-use crate::{get_counter, inc_counter};
+use crate::{get_counter, inc_counter, inc_counter_by};
 
 pub fn apply_cryptanalysis(
     plaintext_candidates: &[&str],
@@ -81,6 +81,11 @@ pub fn summarize_metrics() {
             get_counter!("axiomatic_contradiction") as f64
                 / refutation_attempts as f64
                 * 100.0
+        );
+        println!(
+            "Avg starting axiomatic pairs per map: {:.2}",
+            get_counter!("n_starting_axiomatic_pairs") as f64
+                / refutation_attempts as f64
         );
     }
 }
@@ -191,6 +196,8 @@ pub fn disprove_plaintext(
         Ok(item) => item,
         Err(()) => return true,
     };
+    #[cfg(feature = "metrics")]
+    inc_counter_by!("n_starting_axiomatic_pairs", axiomatic_pairs.len() as u64);
     // 2. Secondary disproofs. Combining one proven pair and one unproven pair,
     // to see if the resulting pair enables plaintext segments are vali
     // substring of the correponding ciphertext segments

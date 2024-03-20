@@ -13,10 +13,10 @@ impl MetricsRegistry {
         }
     }
 
-    pub fn increment_counter(&self, name: &str) {
+    pub fn increment_counter(&self, name: &str, amount: u64) {
         let mut counters = self.counters.lock().unwrap();
         let counter = counters.entry(name.to_owned()).or_insert(0);
-        *counter += 1;
+        *counter += amount;
     }
 
     pub fn get_counter_value(&self, name: &str) -> Option<u64> {
@@ -30,7 +30,14 @@ pub static REGISTRY: Lazy<MetricsRegistry> = Lazy::new(MetricsRegistry::new);
 #[macro_export]
 macro_rules! inc_counter {
     ($name:expr) => {
-        crate::metrics::REGISTRY.increment_counter($name)
+        crate::metrics::REGISTRY.increment_counter($name, 1)
+    };
+}
+
+#[macro_export]
+macro_rules! inc_counter_by {
+    ($name:expr, $amount:expr) => {
+        crate::metrics::REGISTRY.increment_counter($name, $amount)
     };
 }
 
