@@ -1,7 +1,9 @@
 use std::env;
 
 use crypto_proj1_rs::{
-    algo::apply_cryptanalysis, encryption::gen_challenge, plaintext,
+    algo::{apply_cryptanalysis, summarize_metrics},
+    encryption::gen_challenge,
+    plaintext,
 };
 use rand::SeedableRng;
 fn main() {
@@ -49,6 +51,7 @@ fn main() {
     let success_rate = correct_guess as f64
         / (correct_guess + incorrect_guess + unable_to_guess) as f64;
     println!("Success rate: {:.2}%", success_rate * 100.0);
+    summarize_metrics();
 }
 
 fn print_help(args: &[String]) {

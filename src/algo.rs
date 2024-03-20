@@ -1,13 +1,10 @@
-mod disproof_stats;
 mod disproof_table;
 
-use self::disproof_table::DisproofTable;
-use crate::{
-    algo::disproof_stats::DisproofStatsCollector, encryption::string_to_vec,
-};
+use crate::encryption::string_to_vec;
+use disproof_table::DisproofTable;
 
 #[cfg(feature = "metrics")]
-use crate::{get_counter, inc_counter};
+use crate::{get_counter, inc_counter, metrics::REGISTRY};
 
 pub fn apply_cryptanalysis(
     plaintext_candidates: &[&str],
@@ -21,17 +18,13 @@ pub fn apply_cryptanalysis(
     let mut disproved = vec![false; plaintext_candidates.len()];
     for i in 0..plaintext_candidates.len() {
         let mut disprove_table = DisproofTable::new();
-        let mut disproof_stats = DisproofStatsCollector::new();
         if disprove_plaintext_ciphertext_pair(
             plaintext_candidates[i],
             ciphertext,
             &mut disprove_table,
-            &mut disproof_stats,
         ) {
             disproved[i] = true;
         }
-        println!("{disprove_table}");
-        println!("{disproof_stats}");
     }
     let num_disproven = disproved.iter().filter(|&x| *x).count();
     if num_disproven + 1 == disproved.len() {
@@ -44,12 +37,18 @@ pub fn apply_cryptanalysis(
     None
 }
 
+pub fn summarize_metrics() {
+    #[cfg(feature = "metrics")]
+    {
+        println!("Total runs: {}", get_counter!("total_runs"));
+    }
+}
+
 // Return whether it is impossible for the plaintext to map to the ciphertext.
 pub fn disprove_plaintext_ciphertext_pair(
     plaintext: &str,
     ciphertext: &str,
     disproof_table: &mut DisproofTable,
-    disproof_stats: &mut DisproofStatsCollector,
 ) -> bool {
     // 0. Convert plaintext and ciphertext to integer representations.
     let plaintext = string_to_vec(plaintext);
@@ -62,7 +61,6 @@ pub fn disprove_plaintext_ciphertext_pair(
                 plaintext_symbol,
                 &ciphertext,
                 &plaintext,
-                disproof_stats,
             ) {
                 disproof_table
                     .write_disproven_pair(ciphertext_symbol, plaintext_symbol)
@@ -71,20 +69,17 @@ pub fn disprove_plaintext_ciphertext_pair(
         if disproof_table
             .is_ciphertext_symbol_fully_eliminated(ciphertext_symbol)
         {
-            println!("Disproven through ciphertext elimination!");
             return true;
         }
     }
     for plaintext_symbol in 0..27 {
         if disproof_table.is_plaintext_symbol_fully_eliminated(plaintext_symbol)
         {
-            println!("Disproven through plaintext elimination!");
             return true;
         }
     }
     let mut valid_pairs = disproof_table.find_all_proven_pairs();
     if check_conflicting_valid_pairs(&valid_pairs) {
-        println!("Disproven through conflicting valid_pairs");
         return true;
     }
     // 2. Secondary disproofs. Combining one proven pair and one unproven pair,
@@ -95,10 +90,8 @@ pub fn disprove_plaintext_ciphertext_pair(
         disproof_table,
         &ciphertext,
         &plaintext,
-        disproof_stats,
     );
     if is_disproven {
-        println!("Disproven through secondary elimination!");
         return true;
     }
     false
@@ -126,7 +119,6 @@ pub fn secondary_disproof(
     disproof_table: &mut DisproofTable,
     ciphertext: &[u8],
     plaintext: &[u8],
-    stats: &mut DisproofStatsCollector,
 ) -> bool {
     let mut valid_index = 0;
     // For each valid_pair, check against pairs that are neither disproven, nor
@@ -147,7 +139,6 @@ pub fn secondary_disproof(
                     valid_pair, test_pair, ciphertext, plaintext,
                 );
                 if is_disproven {
-                    stats.increment_secondary_disproof();
                     disproof_table
                         .write_disproven_pair(cipher_symbol, plaintext_symbol);
                     // Check if updated pair lead to total elimination
@@ -230,7 +221,6 @@ pub fn try_disprove_pair(
     plaintext_symbol: u8,
     ciphertext: &[u8],
     plaintext: &[u8],
-    stats: &mut DisproofStatsCollector,
 ) -> bool {
     let noise = ciphertext.len() - plaintext.len();
     // 1. Direct length comparison.
@@ -241,7 +231,6 @@ pub fn try_disprove_pair(
         plaintext,
         noise,
     ) {
-        stats.increment_length_disproof();
         return true;
     }
     // 2. Compare alignments
@@ -257,7 +246,6 @@ pub fn try_disprove_pair(
         plaintext,
         noise,
     ) {
-        stats.increment_left_alignment_disproof();
         return true;
     }
     // // 2.2 Right alignment:

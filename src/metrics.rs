@@ -37,7 +37,7 @@ macro_rules! inc_counter {
 #[macro_export]
 macro_rules! get_counter {
     ($name:expr) => {{
-        match $crate::REGISTRY.get_counter_value($name) {
+        match crate::metrics::REGISTRY.get_counter_value($name) {
             Some(value) => value,
             None => {
                 eprintln!("Warning: Counter '{}' not found.", $name);
