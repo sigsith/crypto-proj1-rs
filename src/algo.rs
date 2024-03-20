@@ -34,9 +34,45 @@ pub fn apply_cryptanalysis(
     }
     debug_assert!(!not_refuted.is_empty());
     // 3. Todo: Attempt to find out which plaintext is most likely.
-    let mut rng = thread_rng();
-    let random_pick = not_refuted.choose(&mut rng)?;
-    Some(plaintext_candidates[*random_pick].to_owned())
+    // let mut rng = thread_rng();
+    // let random_pick = not_refuted.choose(&mut rng)?;
+    // Some(plaintext_candidates[*random_pick].to_owned())
+    let ciphertext_dist =
+        calculate_frequency_distribution(&string_to_vec(ciphertext));
+    let mut min_diff = usize::MAX;
+    let mut best = 0;
+    for item in not_refuted {
+        let plaintext = string_to_vec(plaintext_candidates[item]);
+        let plaintext_dist = calculate_frequency_distribution(&plaintext);
+        let diff =
+            calculate_overall_difference(&plaintext_dist, &ciphertext_dist);
+        if diff < min_diff {
+            best = item;
+            min_diff = diff;
+        }
+    }
+    Some(plaintext_candidates[best].to_owned())
+}
+
+fn calculate_frequency_distribution(text: &[u8]) -> [usize; 27] {
+    let mut frequency_distribution = [0; 27];
+    for &symbol in text {
+        frequency_distribution[symbol as usize] += 1;
+    }
+    frequency_distribution.sort_unstable();
+    frequency_distribution
+}
+
+fn calculate_overall_difference(
+    sorted_a: &[usize],
+    sorted_b: &[usize],
+) -> usize {
+    sorted_a
+        .iter()
+        .zip(sorted_b.iter())
+        .fold(0, |acc, (&a, &b)| {
+            acc + (a as isize - b as isize).unsigned_abs()
+        })
 }
 
 pub fn summarize_metrics() {
