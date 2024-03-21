@@ -5,6 +5,9 @@ use crypto_proj1_rs::{
     encryption::gen_challenge,
     plaintext,
 };
+
+use std::time::{Duration, Instant};
+
 use rand::SeedableRng;
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -31,10 +34,14 @@ fn main() {
     let mut correct_guess = 0;
     let mut incorrect_guess = 0;
     let mut unable_to_guess = 0;
+    let mut total_duration = Duration::new(0, 0);
     for _ in 0..iteration {
         let (plaintext, cipher_text) =
             gen_challenge(&plaintexts, randomness, &mut rng);
+        let start_time = Instant::now();
         let result = apply_cryptanalysis(&plaintexts, &cipher_text);
+        let entime = Instant::now();
+        total_duration += entime - start_time;
         match result {
             Some(text) => {
                 if text == *plaintext {
@@ -48,6 +55,11 @@ fn main() {
             }
         }
     }
+    println!(
+        "Duration: {:?}, Duration/run: {:?}",
+        total_duration,
+        total_duration / iteration as u32
+    );
     println!("Correct guesses: {correct_guess}, Incorrect guesses: {incorrect_guess}, Unable to guess: {unable_to_guess}");
     let success_rate = correct_guess as f64
         / (correct_guess + incorrect_guess + unable_to_guess) as f64;
