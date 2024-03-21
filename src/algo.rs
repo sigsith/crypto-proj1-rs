@@ -76,7 +76,7 @@ fn calculate_overall_difference(sorted_a: &[f64], sorted_b: &[f64]) -> f64 {
     sorted_a
         .iter()
         .zip(sorted_b.iter())
-        .fold(0.0, |acc, (&a, &b)| acc + (a - b).abs())
+        .fold(0.0, |acc, (&a, &b)| acc + (a - b).powi(2))
 }
 
 pub fn summarize_metrics() {
