@@ -19,6 +19,12 @@ path = "src/bin/test-decryption.rs"
 [features]
 metrics = ["dep:once_cell"]
 
+[profile.release]
+strip = true
+lto = true
+panic = "abort"
+codegen-units = 1
+
 [profile.release_assert]
 inherits = "release"
 debug-assertions = true
