@@ -9,6 +9,11 @@ pub fn apply_cryptanalysis(
 ) -> usize {
     // 1. Attempt to disprove every plaintext candidate.
     let mut not_refuted = Vec::new();
+    let ciphertext = &string_to_vec(ciphertext);
+    let plaintext_candidates: Vec<Vec<u8>> = plaintext_candidates
+        .iter()
+        .map(|s| string_to_vec(s))
+        .collect();
     for (index, plaintext) in plaintext_candidates.iter().enumerate() {
         let mut disprove_table = DisproofTable::new();
         if !disprove_plaintext(plaintext, ciphertext, &mut disprove_table) {
@@ -21,14 +26,13 @@ pub fn apply_cryptanalysis(
     }
     debug_assert!(!not_refuted.is_empty());
     // 3. Attempt to find out which plaintext is most likely with freq analysis.
-    let ciphertext_dist =
-        calculate_frequency_distribution(&string_to_vec(ciphertext), 0);
+    let ciphertext_dist = calculate_frequency_distribution(ciphertext, 0);
     let mut min_diff = f64::MAX;
     let mut best = 0;
     for item in not_refuted {
-        let plaintext = string_to_vec(plaintext_candidates[item]);
+        let plaintext = &plaintext_candidates[item];
         let plaintext_dist = calculate_frequency_distribution(
-            &plaintext,
+            plaintext,
             ciphertext.len() - plaintext.len(),
         );
         let diff =
@@ -92,15 +96,13 @@ fn is_conflict_or_insert(
 
 // Returns whether it is impossible for the plaintext to map to the ciphertext.
 pub fn disprove_plaintext(
-    plaintext: &str,
-    ciphertext: &str,
+    plaintext: &[u8],
+    ciphertext: &[u8],
     disproof_table: &mut DisproofTable,
 ) -> bool {
     // 0. Convert plaintext and ciphertext to integer representations.
-    let plaintext = string_to_vec(plaintext);
-    let ciphertext = string_to_vec(ciphertext);
-    let plaintext_poslist = to_position_list(&plaintext);
-    let ciphertext_poslist = to_position_list(&ciphertext);
+    let plaintext_poslist = to_position_list(plaintext);
+    let ciphertext_poslist = to_position_list(ciphertext);
     let noise = ciphertext.len() - plaintext.len();
     let mut occupied_ciphertext_symbols = [false; 27];
     let mut occupied_plaintext_symbols = [false; 27];
