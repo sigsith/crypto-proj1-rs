@@ -16,6 +16,10 @@ path = "src/bin/encryption-example.rs"
 name = "test-decryption"
 path = "src/bin/test-decryption.rs"
 
+[[bin]]
+name = "end-to-end-test"
+path = "src/bin/end-to-end-test.rs"
+
 [profile.release]
 strip = true
 lto = true
