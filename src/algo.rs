@@ -7,8 +7,6 @@ pub fn apply_cryptanalysis(
     plaintext_candidates: &[&str],
     ciphertext: &str,
 ) -> Option<String> {
-    // 0. Validate input.
-    validate_input(plaintext_candidates, ciphertext).ok()?;
     // 1. Attempt to disprove every plaintext candidate.
     let mut not_refuted = Vec::new();
     for (index, plaintext) in plaintext_candidates.iter().enumerate() {
@@ -216,31 +214,4 @@ fn test_alignment(
         }
     }
     false
-}
-
-fn validate_input(
-    plaintext_candidates: &[&str],
-    ciphertext: &str,
-) -> Result<(), ()> {
-    if plaintext_candidates.is_empty() {
-        return Err(());
-    }
-    if !is_lowercase_or_space(ciphertext) {
-        return Err(());
-    }
-    let first_length = plaintext_candidates[0].len();
-    if !plaintext_candidates
-        .iter()
-        .all(|s| s.len() == first_length && is_lowercase_or_space(s))
-    {
-        return Err(());
-    }
-    if ciphertext.len() < first_length {
-        return Err(());
-    }
-    Ok(())
-}
-
-fn is_lowercase_or_space(s: &str) -> bool {
-    s.chars().all(|c| c.is_ascii_lowercase() || c == ' ')
 }
