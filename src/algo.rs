@@ -208,6 +208,14 @@ pub fn scan_disproof_table(
     Ok(axioms)
 }
 
+fn to_position_list(text: &[u8]) -> Vec<Vec<u16>> {
+    let mut post_list = vec![Vec::new(); 27];
+    for (index, &item) in text.iter().enumerate() {
+        post_list[item as usize].push(index as u16);
+    }
+    post_list
+}
+
 // Returns whether it is impossible for the plaintext to map to the ciphertext.
 pub fn disprove_plaintext(
     plaintext: &str,
@@ -219,14 +227,16 @@ pub fn disprove_plaintext(
     // 0. Convert plaintext and ciphertext to integer representations.
     let plaintext = string_to_vec(plaintext);
     let ciphertext = string_to_vec(ciphertext);
+    let plaintext_poslist = to_position_list(&plaintext);
+    let ciphertext_poslist = to_position_list(&ciphertext);
+    let noise = ciphertext.len() - plaintext.len();
     // 1. Try each combinations of key-value pair to eliminate impossible pairs
     for ciphertext_symbol in 0..27 {
         for plaintext_symbol in 0..27 {
             if disprove_pair(
-                ciphertext_symbol,
-                plaintext_symbol,
-                &ciphertext,
-                &plaintext,
+                &ciphertext_poslist[ciphertext_symbol as usize],
+                &plaintext_poslist[plaintext_symbol as usize],
+                noise,
             ) {
                 disproof_table
                     .write_disproven(ciphertext_symbol, plaintext_symbol)
@@ -251,22 +261,16 @@ pub fn disprove_plaintext(
 
 // Returns whether a substitution pair is disproven.
 pub fn disprove_pair(
-    ciphertext_symbol: u8,
-    plaintext_symbol: u8,
-    ciphertext: &[u8],
-    plaintext: &[u8],
+    ciphertext_poslist: &[u16],
+    plaintext_poslist: &[u16],
+    noise: usize,
 ) -> bool {
     #[cfg(feature = "metrics")]
     inc_counter!("pair_disproof_attempts");
-    let noise = ciphertext.len() - plaintext.len();
     // 1. Direct length comparison.
-    if test_direct_length(
-        ciphertext_symbol,
-        plaintext_symbol,
-        ciphertext,
-        plaintext,
-        noise,
-    ) {
+    let ciphertext_pop = ciphertext_poslist.len();
+    let plaintext_pop = plaintext_poslist.len();
+    if test_direct_length(ciphertext_pop, plaintext_pop, noise) {
         #[cfg(feature = "metrics")]
         inc_counter!("pair_disproof_lenth_cmp");
         return true;
@@ -275,13 +279,7 @@ pub fn disprove_pair(
     // Given that ciphertext is just a tranform of the plaintext with extra
     // noise, the coorespoonding ciphertext symbol cannot be more than an offset
     // away from the plaintext symbol
-    if test_alignment(
-        ciphertext_symbol,
-        plaintext_symbol,
-        ciphertext,
-        plaintext,
-        noise,
-    ) {
+    if test_alignment(ciphertext_poslist, plaintext_poslist, noise as u16) {
         #[cfg(feature = "metrics")]
         inc_counter!("pair_disproof_align");
         return true;
@@ -291,64 +289,39 @@ pub fn disprove_pair(
     false
 }
 
-fn test_direct_length(
-    ciphertext_symbol: u8,
-    plaintext_symbol: u8,
-    ciphertext: &[u8],
-    plaintext: &[u8],
+const fn test_direct_length(
+    ciphertext_pop: usize,
+    plaintext_pop: usize,
     noise: usize,
 ) -> bool {
-    let ciphertext_pop = bytecount::count(ciphertext, ciphertext_symbol);
-    let plaintext_pop = bytecount::count(plaintext, plaintext_symbol);
     ciphertext_pop < plaintext_pop || ciphertext_pop > plaintext_pop + noise
 }
 
 fn test_alignment(
-    ciphertext_symbol: u8,
-    plaintext_symbol: u8,
-    ciphertext: &[u8],
-    plaintext: &[u8],
-    noise: usize,
+    ciphertext_symbol_poslist: &[u16],
+    plaintext_symbol_poslist: &[u16],
+    total_noise: u16,
 ) -> bool {
-    let mut plaintext_index = 0;
     let mut noise_used = 0;
-    while plaintext_index != plaintext.len() {
-        if plaintext[plaintext_index] == plaintext_symbol {
-            match check_alignment_offset(
-                plaintext_index,
-                ciphertext,
-                ciphertext_symbol,
-                noise_used,
-                noise,
-            ) {
-                Ok(extra) => noise_used += extra,
-                Err(()) => return true,
+    let mut ciphertext_iter = ciphertext_symbol_poslist.iter();
+    for &plaintext_index in plaintext_symbol_poslist {
+        let start_pos = plaintext_index + noise_used;
+        let end_pos = plaintext_index + total_noise;
+        loop {
+            let Some(&cipher_pos) = ciphertext_iter.next() else {
+                return true;
+            };
+            if cipher_pos < start_pos {
+                continue;
             }
+            if cipher_pos <= end_pos {
+                noise_used += cipher_pos - start_pos;
+                break;
+            }
+            return true;
         }
-        plaintext_index += 1;
     }
     false
-}
-
-// Check if it is plausible for the plaintext index to map to the cipher text,
-// given the noise tolerance.
-// If it is plausible , return the noise used.
-// If it is not, return Err.
-fn check_alignment_offset(
-    plaintext_index: usize,
-    ciphertext: &[u8],
-    ciphertext_symbol: u8,
-    noise_used: usize,
-    total_noise: usize,
-) -> Result<usize, ()> {
-    let starting_index = plaintext_index + noise_used;
-    let ending_index = plaintext_index + total_noise;
-    for i in starting_index..=ending_index {
-        if ciphertext[i] == ciphertext_symbol {
-            return Ok(i - starting_index);
-        }
-    }
-    Err(())
 }
 
 fn validate_input(
