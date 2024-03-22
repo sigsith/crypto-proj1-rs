@@ -16,9 +16,6 @@ path = "src/bin/encryption-example.rs"
 name = "test-decryption"
 path = "src/bin/test-decryption.rs"
 
-[features]
-metrics = ["dep:once_cell"]
-
 [profile.release]
 strip = true
 lto = true
@@ -37,4 +34,3 @@ debug-assertions = true
 [dependencies]
 rand = "0.8.5"
 bytecount = "0.6.7"
-once_cell = { version = "1.19.0", optional = true }

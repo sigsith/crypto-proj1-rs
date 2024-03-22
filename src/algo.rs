@@ -3,26 +3,18 @@ mod disproof_table;
 use crate::encryption::string_to_vec;
 use disproof_table::DisproofTable;
 
-#[cfg(feature = "metrics")]
-use crate::{get_counter, inc_counter, inc_counter_by};
 
 pub fn apply_cryptanalysis(
     plaintext_candidates: &[&str],
     ciphertext: &str,
 ) -> Option<String> {
-    #[cfg(feature = "metrics")]
-    inc_counter!("total_runs");
     // 0. Validate input.
     validate_input(plaintext_candidates, ciphertext).ok()?;
     // 1. Attempt to disprove every plaintext candidate.
     let mut not_refuted = Vec::new();
     for (index, plaintext) in plaintext_candidates.iter().enumerate() {
         let mut disprove_table = DisproofTable::new();
-        #[cfg(feature = "metrics")]
-        inc_counter!("n_plaintexts");
         if disprove_plaintext(plaintext, ciphertext, &mut disprove_table) {
-            #[cfg(feature = "metrics")]
-            inc_counter!("n_disproven_plaintexts");
         } else {
             not_refuted.push(index);
         }
@@ -75,60 +67,6 @@ fn calculate_overall_difference(sorted_a: &[f64], sorted_b: &[f64]) -> f64 {
         .fold(0.0, |acc, (&a, &b)| acc + (a - b).powi(2))
 }
 
-pub fn summarize_metrics() {
-    #[cfg(feature = "metrics")]
-    {
-        let total_runs = get_counter!("total_runs");
-        println!("Total runs: {total_runs}");
-        println!("Plaintext disproof stats:");
-        println!(
-            "\tPortion of plaintexts disproven: {:.2}%",
-            get_counter!("n_disproven_plaintexts") as f64
-                / get_counter!("n_plaintexts") as f64
-                * 100.0
-        );
-        println!("Pair disproof stats:");
-        let total_pair_disproof_attempts =
-            get_counter!("pair_disproof_attempts");
-        println!(
-            "\tBy length comparison: {:.2}%",
-            get_counter!("pair_disproof_lenth_cmp") as f64
-                / total_pair_disproof_attempts as f64
-                * 100.0
-        );
-        println!(
-            "\tBy alignment: {:.2}%",
-            get_counter!("pair_disproof_align") as f64
-                / total_pair_disproof_attempts as f64
-                * 100.0
-        );
-        println!(
-            "\tFailed: {:.2}%",
-            get_counter!("pair_disproof_fail") as f64
-                / total_pair_disproof_attempts as f64
-                * 100.0
-        );
-        println!("Plaintext refutation stats:");
-        let refutation_attempts = get_counter!("refutation_attempts");
-        println!(
-            "\tBy no solution: {:.2}%",
-            get_counter!("no_solution") as f64 / refutation_attempts as f64
-                * 100.0
-        );
-        println!(
-            "\tBy axiomatic contradiction: {:.2}%",
-            get_counter!("axiomatic_contradiction") as f64
-                / refutation_attempts as f64
-                * 100.0
-        );
-        println!(
-            "Avg starting axiomatic pairs per map: {:.2}",
-            get_counter!("n_starting_axiomatic_pairs") as f64
-                / refutation_attempts as f64
-        );
-    }
-}
-
 fn to_position_list(text: &[u8]) -> Vec<Vec<u16>> {
     let mut post_list = vec![Vec::new(); 27];
     for (index, &item) in text.iter().enumerate() {
@@ -162,8 +100,6 @@ pub fn disprove_plaintext(
     ciphertext: &str,
     disproof_table: &mut DisproofTable,
 ) -> bool {
-    #[cfg(feature = "metrics")]
-    inc_counter!("refutation_attempts");
     // 0. Convert plaintext and ciphertext to integer representations.
     let plaintext = string_to_vec(plaintext);
     let ciphertext = string_to_vec(ciphertext);
@@ -172,7 +108,7 @@ pub fn disprove_plaintext(
     let noise = ciphertext.len() - plaintext.len();
     let mut occupied_ciphertext_symbols = [false; 27];
     let mut occupied_plaintext_symbols = [false; 27];
-    // 1. Try each combinations of key-value pair to eliminate impossible pairs
+    // 1. Try each combination of key-value pair to eliminate impossible pairs
     for ciphertext_symbol in 0..27 {
         let mut n_disproven = 0;
         let mut last_undisproven = 0;
@@ -233,14 +169,10 @@ pub fn disprove_pair(
     plaintext_poslist: &[u16],
     noise: usize,
 ) -> bool {
-    #[cfg(feature = "metrics")]
-    inc_counter!("pair_disproof_attempts");
     // 1. Direct length comparison.
     let ciphertext_pop = ciphertext_poslist.len();
     let plaintext_pop = plaintext_poslist.len();
     if test_direct_length(ciphertext_pop, plaintext_pop, noise) {
-        #[cfg(feature = "metrics")]
-        inc_counter!("pair_disproof_lenth_cmp");
         return true;
     }
     // 2. Compare alignments
@@ -248,12 +180,8 @@ pub fn disprove_pair(
     // noise, the coorespoonding ciphertext symbol cannot be more than an offset
     // away from the plaintext symbol
     if test_alignment(ciphertext_poslist, plaintext_poslist, noise as u16) {
-        #[cfg(feature = "metrics")]
-        inc_counter!("pair_disproof_align");
         return true;
     }
-    #[cfg(feature = "metrics")]
-    inc_counter!("pair_disproof_fail");
     false
 }
 
