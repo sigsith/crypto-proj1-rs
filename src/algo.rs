@@ -13,8 +13,7 @@ pub fn apply_cryptanalysis(
     let mut not_refuted = Vec::new();
     for (index, plaintext) in plaintext_candidates.iter().enumerate() {
         let mut disprove_table = DisproofTable::new();
-        if disprove_plaintext(plaintext, ciphertext, &mut disprove_table) {
-        } else {
+        if !disprove_plaintext(plaintext, ciphertext, &mut disprove_table) {
             not_refuted.push(index);
         }
     }
