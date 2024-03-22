@@ -129,91 +129,31 @@ pub fn summarize_metrics() {
     }
 }
 
-// Performs a basic visual scan of the disproof table.
-// Returns Ok(Vec<(u8, u8)>), the vector is a list of up to 27 axiomatic pairs.
-// Returns Err(()) if there are obvious inconsistencies.
-//
-// An axiomatic pair is a subsitution pair which is assumed to be true due to
-// a lack of alternatives.
-pub fn scan_disproof_table(
-    disproof_table: &DisproofTable,
-) -> Result<Vec<(u8, u8)>, ()> {
-    let mut axioms = Vec::new();
-    let mut occupied_ciphertext_symbols = [false; 27];
-    let mut occupied_plaintext_symbols = [false; 27];
-    for c in 0..27 {
-        let mut n_disproven = 0;
-        let mut last_undisproven = 0;
-        for p in 0..27 {
-            if disproof_table.is_disproven(c, p) {
-                n_disproven += 1;
-            } else {
-                last_undisproven = p
-            }
-        }
-        if n_disproven == 27 {
-            #[cfg(feature = "metrics")]
-            inc_counter!("no_solution");
-            return Err(());
-        } else if n_disproven == 26 {
-            let axiom_c = c;
-            let axiom_p = last_undisproven;
-            if occupied_ciphertext_symbols[axiom_c as usize]
-                || occupied_plaintext_symbols[axiom_p as usize]
-            {
-                #[cfg(feature = "metrics")]
-                inc_counter!("axiomatic_contradiction");
-                return Err(());
-            }
-            occupied_ciphertext_symbols[axiom_c as usize] = true;
-            occupied_plaintext_symbols[axiom_p as usize] = true;
-            axioms.push((axiom_c, axiom_p));
-        }
-    }
-    for p in 0..27 {
-        let mut n_disproven = 0;
-        let mut last_undisproven = 0;
-        for c in 0..27 {
-            if disproof_table.is_disproven(c, p) {
-                n_disproven += 1;
-            } else {
-                last_undisproven = c
-            }
-        }
-        if n_disproven == 27 {
-            #[cfg(feature = "metrics")]
-            inc_counter!("no_solution");
-            return Err(());
-        } else if n_disproven == 26 {
-            let axiom_c = last_undisproven;
-            let axiom_p = p;
-            // It is possible that an axiom is both a row and a column axiom
-            if axioms.contains(&(axiom_c, axiom_p)) {
-                continue;
-            }
-            if occupied_ciphertext_symbols[axiom_c as usize]
-                || occupied_plaintext_symbols[axiom_p as usize]
-            {
-                #[cfg(feature = "metrics")]
-                inc_counter!("axiomatic_contradiction");
-                return Err(());
-            }
-            occupied_ciphertext_symbols[axiom_c as usize] = true;
-            occupied_plaintext_symbols[axiom_p as usize] = true;
-            axioms.push((axiom_c, axiom_p));
-        }
-    }
-    #[cfg(feature = "metrics")]
-    inc_counter_by!("n_starting_axiomatic_pairs", axioms.len() as u64);
-    Ok(axioms)
-}
-
 fn to_position_list(text: &[u8]) -> Vec<Vec<u16>> {
     let mut post_list = vec![Vec::new(); 27];
     for (index, &item) in text.iter().enumerate() {
         post_list[item as usize].push(index as u16);
     }
     post_list
+}
+
+fn is_conflict_or_insert(
+    ciphertext_symbol: u8,
+    plaintext_symbol: u8,
+    occupied_ciphertext_symbols: &mut [bool; 27],
+    occupied_plaintext_symbols: &mut [bool; 27],
+) -> bool {
+    let condition1 = occupied_ciphertext_symbols[ciphertext_symbol as usize];
+    let condition2 = occupied_plaintext_symbols[plaintext_symbol as usize];
+    if condition1 && condition2 {
+        return false;
+    }
+    if condition1 || condition2 {
+        return true;
+    }
+    occupied_ciphertext_symbols[ciphertext_symbol as usize] = true;
+    occupied_plaintext_symbols[plaintext_symbol as usize] = true;
+    false
 }
 
 // Returns whether it is impossible for the plaintext to map to the ciphertext.
@@ -230,8 +170,12 @@ pub fn disprove_plaintext(
     let plaintext_poslist = to_position_list(&plaintext);
     let ciphertext_poslist = to_position_list(&ciphertext);
     let noise = ciphertext.len() - plaintext.len();
+    let mut occupied_ciphertext_symbols = [false; 27];
+    let mut occupied_plaintext_symbols = [false; 27];
     // 1. Try each combinations of key-value pair to eliminate impossible pairs
     for ciphertext_symbol in 0..27 {
+        let mut n_disproven = 0;
+        let mut last_undisproven = 0;
         for plaintext_symbol in 0..27 {
             if disprove_pair(
                 &ciphertext_poslist[ciphertext_symbol as usize],
@@ -239,24 +183,48 @@ pub fn disprove_plaintext(
                 noise,
             ) {
                 disproof_table
-                    .write_disproven(ciphertext_symbol, plaintext_symbol)
+                    .write_disproven(ciphertext_symbol, plaintext_symbol);
+                n_disproven += 1;
+            } else {
+                last_undisproven = plaintext_symbol;
             }
         }
+        if n_disproven == 27
+            || n_disproven == 26
+                && is_conflict_or_insert(
+                    ciphertext_symbol,
+                    last_undisproven,
+                    &mut occupied_ciphertext_symbols,
+                    &mut occupied_plaintext_symbols,
+                )
+        {
+            return true;
+        }
     }
-    scan_disproof_table(disproof_table).is_err()
-    // 2. Todo.
-    // Use the property of axiomatic pairs to perform addtional validations.
-    // Due to the rarity of axiomatic pairs, the effect is likely small.
-    // 2.1
-    // Combine all axiomatic pairs as keys and verify whether there is a
-    // valid substring mapping between plaintext and ciphertext
-    // If the verification fails, the plaintext is disproven.
-    // 2.2
-    // For each pair that is neither disproven nor axiomatic, combine it with
-    // all axiomatic pairs and perform the same validation check as 2.1
-    // If the validation fails, then the pair must be disproven.
-    // Use this result to update disproof_table, until either the plaintext is
-    // disproven or there are no more updates.
+    for plaintext_symbol in 0..27 {
+        let mut n_disproven = 0;
+        let mut last_disproven = 0;
+        for ciphertext_symbol in 0..27 {
+            if disproof_table.is_disproven(ciphertext_symbol, plaintext_symbol)
+            {
+                n_disproven += 1;
+            } else {
+                last_disproven = ciphertext_symbol;
+            }
+        }
+        if n_disproven == 27
+            || n_disproven == 26
+                && is_conflict_or_insert(
+                    last_disproven,
+                    plaintext_symbol,
+                    &mut occupied_ciphertext_symbols,
+                    &mut occupied_plaintext_symbols,
+                )
+        {
+            return true;
+        }
+    }
+    false
 }
 
 // Returns whether a substitution pair is disproven.
