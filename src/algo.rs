@@ -68,7 +68,13 @@ fn calculate_overall_difference(sorted_a: &[f64], sorted_b: &[f64]) -> f64 {
 }
 
 fn to_position_list(text: &[u8]) -> Vec<Vec<u16>> {
-    let mut post_list = vec![Vec::new(); 27];
+    let mut post_list: Vec<Vec<_>> = (0..27)
+        .map(|_| {
+            let mut v = Vec::new();
+            v.reserve(text.len() / 8);
+            v
+        })
+        .collect();
     for (index, &item) in text.iter().enumerate() {
         post_list[item as usize].push(index as u16);
     }
@@ -95,7 +101,7 @@ fn is_conflict_or_insert(
 }
 
 // Returns whether it is impossible for the plaintext to map to the ciphertext.
-pub fn disprove_plaintext(
+fn disprove_plaintext(
     plaintext: &[u8],
     ciphertext: &[u8],
     ciphertext_positions: &[Vec<u16>],
@@ -162,7 +168,7 @@ pub fn disprove_plaintext(
 }
 
 // Returns whether a substitution pair is disproven.
-pub fn disprove_pair(
+fn disprove_pair(
     ciphertext_poslist: &[u16],
     plaintext_poslist: &[u16],
     noise: usize,
