@@ -81,6 +81,22 @@ fn to_position_list(text: &[u8]) -> Vec<Vec<u16>> {
     post_list
 }
 
+fn is_conflict_or_insert_skip(
+    ciphertext_symbol: u8,
+    plaintext_symbol: u8,
+    occupied_ciphertext_symbols: &mut [bool; 27],
+    occupied_plaintext_symbols: &mut [bool; 27],
+) -> bool {
+    let condition1 = occupied_ciphertext_symbols[ciphertext_symbol as usize];
+    let condition2 = occupied_plaintext_symbols[plaintext_symbol as usize];
+    if condition1 || condition2 {
+        return true;
+    }
+    occupied_ciphertext_symbols[ciphertext_symbol as usize] = true;
+    occupied_plaintext_symbols[plaintext_symbol as usize] = true;
+    false
+}
+
 fn is_conflict_or_insert(
     ciphertext_symbol: u8,
     plaintext_symbol: u8,
@@ -131,7 +147,7 @@ fn disprove_plaintext(
         }
         if n_disproven == 27
             || n_disproven == 26
-                && is_conflict_or_insert(
+                && is_conflict_or_insert_skip(
                     ciphertext_symbol,
                     last_undisproven,
                     &mut occupied_ciphertext_symbols,
