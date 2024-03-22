@@ -3,7 +3,6 @@ mod disproof_table;
 use crate::encryption::string_to_vec;
 use disproof_table::DisproofTable;
 
-
 pub fn apply_cryptanalysis(
     plaintext_candidates: &[&str],
     ciphertext: &str,
@@ -176,8 +175,8 @@ pub fn disprove_pair(
         return true;
     }
     // 2. Compare alignments
-    // Given that ciphertext is just a tranform of the plaintext with extra
-    // noise, the coorespoonding ciphertext symbol cannot be more than an offset
+    // Given that ciphertext is just a transform of the plaintext with extra
+    // noise, the corresponding ciphertext symbol cannot be more than an offset
     // away from the plaintext symbol
     if test_alignment(ciphertext_poslist, plaintext_poslist, noise as u16) {
         return true;

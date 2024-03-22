@@ -40,8 +40,8 @@ fn main() {
             gen_challenge(&plaintexts, randomness, &mut rng);
         let start_time = Instant::now();
         let result = apply_cryptanalysis(&plaintexts, &cipher_text);
-        let entime = Instant::now();
-        total_duration += entime - start_time;
+        let end_time = Instant::now();
+        total_duration += end_time - start_time;
         match result {
             Some(text) => {
                 if text == *plaintext {
