@@ -25,6 +25,11 @@ lto = true
 panic = "abort"
 codegen-units = 1
 
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = false
+
 [profile.release_assert]
 inherits = "release"
 debug-assertions = true
