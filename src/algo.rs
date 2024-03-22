@@ -14,9 +14,9 @@ pub fn apply_cryptanalysis(
         .iter()
         .map(|s| string_to_vec(s))
         .collect();
+    let ciphertext_positions = to_position_list(ciphertext);
     for (index, plaintext) in plaintext_candidates.iter().enumerate() {
-        let mut disprove_table = DisproofTable::new();
-        if !disprove_plaintext(plaintext, ciphertext, &mut disprove_table) {
+        if !disprove_plaintext(plaintext, ciphertext, &ciphertext_positions) {
             not_refuted.push(index);
         }
     }
@@ -98,11 +98,11 @@ fn is_conflict_or_insert(
 pub fn disprove_plaintext(
     plaintext: &[u8],
     ciphertext: &[u8],
-    disproof_table: &mut DisproofTable,
+    ciphertext_positions: &[Vec<u16>],
 ) -> bool {
     // 0. Convert plaintext and ciphertext to integer representations.
-    let plaintext_poslist = to_position_list(plaintext);
-    let ciphertext_poslist = to_position_list(ciphertext);
+    let plaintext_positions = to_position_list(plaintext);
+    let mut disproof_table = DisproofTable::new();
     let noise = ciphertext.len() - plaintext.len();
     let mut occupied_ciphertext_symbols = [false; 27];
     let mut occupied_plaintext_symbols = [false; 27];
@@ -112,8 +112,8 @@ pub fn disprove_plaintext(
         let mut last_undisproven = 0;
         for plaintext_symbol in 0..27 {
             if disprove_pair(
-                &ciphertext_poslist[ciphertext_symbol as usize],
-                &plaintext_poslist[plaintext_symbol as usize],
+                &ciphertext_positions[ciphertext_symbol as usize],
+                &plaintext_positions[plaintext_symbol as usize],
                 noise,
             ) {
                 disproof_table
