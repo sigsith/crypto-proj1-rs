@@ -13,10 +13,6 @@ name = "encryption-example"
 path = "src/bin/encryption-example.rs"
 
 [[bin]]
-name = "test-decryption"
-path = "src/bin/test-decryption.rs"
-
-[[bin]]
 name = "end-to-end-test"
 path = "src/bin/end-to-end-test.rs"
 

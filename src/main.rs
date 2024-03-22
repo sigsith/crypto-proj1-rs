@@ -7,8 +7,7 @@ fn main() -> Result<(), io::Error> {
     io::stdin().read_line(&mut input)?;
     let ciphertext = input.trim_end_matches('\n');
     let plaintext_candidates = plaintext::get_hardcoded_plaintexts();
-    let result = algo::apply_cryptanalysis(&plaintext_candidates, ciphertext)
-        .unwrap_or("None".to_string());
-    println!("My plaintext guess is:{result}");
+    let guess = algo::apply_cryptanalysis(&plaintext_candidates, ciphertext);
+    println!("My plaintext guess is:{}", plaintext_candidates[guess]);
     Ok(())
 }

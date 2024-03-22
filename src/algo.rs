@@ -6,7 +6,7 @@ use disproof_table::DisproofTable;
 pub fn apply_cryptanalysis(
     plaintext_candidates: &[&str],
     ciphertext: &str,
-) -> Option<String> {
+) -> usize {
     // 1. Attempt to disprove every plaintext candidate.
     let mut not_refuted = Vec::new();
     for (index, plaintext) in plaintext_candidates.iter().enumerate() {
@@ -17,7 +17,7 @@ pub fn apply_cryptanalysis(
     }
     // 2. If there is exactly one plaintext not disproven, return it.
     if not_refuted.len() == 1 {
-        return Some(plaintext_candidates[not_refuted[0]].to_owned());
+        return not_refuted[0];
     }
     debug_assert!(!not_refuted.is_empty());
     // 3. Attempt to find out which plaintext is most likely with freq analysis.
@@ -38,7 +38,7 @@ pub fn apply_cryptanalysis(
             min_diff = diff;
         }
     }
-    Some(plaintext_candidates[best].to_owned())
+    best
 }
 
 fn calculate_frequency_distribution(text: &[u8], noise: usize) -> [f64; 27] {
