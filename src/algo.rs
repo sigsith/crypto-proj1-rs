@@ -69,11 +69,7 @@ fn calculate_overall_difference(sorted_a: &[f64], sorted_b: &[f64]) -> f64 {
 
 fn to_position_list(text: &[u8]) -> Vec<Vec<u16>> {
     let mut post_list: Vec<Vec<_>> = (0..27)
-        .map(|_| {
-            let mut v = Vec::new();
-            v.reserve(text.len() / 8);
-            v
-        })
+        .map(|_| Vec::with_capacity(text.len() / 8))
         .collect();
     for (index, &item) in text.iter().enumerate() {
         post_list[item as usize].push(index as u16);
@@ -131,7 +127,7 @@ fn disprove_plaintext(
     // 1. Try each combination of key-value pair to eliminate impossible pairs
     for ciphertext_symbol in 0..27 {
         let mut n_disproven = 0;
-        let mut last_undisproven = 0;
+        let mut last_not_disproven = 0;
         for plaintext_symbol in 0..27 {
             if disprove_pair(
                 &ciphertext_positions[ciphertext_symbol as usize],
@@ -142,14 +138,14 @@ fn disprove_plaintext(
                     .write_disproven(ciphertext_symbol, plaintext_symbol);
                 n_disproven += 1;
             } else {
-                last_undisproven = plaintext_symbol;
+                last_not_disproven = plaintext_symbol;
             }
         }
         if n_disproven == 27
             || n_disproven == 26
                 && is_conflict_or_insert_skip(
                     ciphertext_symbol,
-                    last_undisproven,
+                    last_not_disproven,
                     &mut occupied_ciphertext_symbols,
                     &mut occupied_plaintext_symbols,
                 )
@@ -159,19 +155,19 @@ fn disprove_plaintext(
     }
     for plaintext_symbol in 0..27 {
         let mut n_disproven = 0;
-        let mut last_disproven = 0;
+        let mut last_not_disproven = 0;
         for ciphertext_symbol in 0..27 {
             if disproof_table.is_disproven(ciphertext_symbol, plaintext_symbol)
             {
                 n_disproven += 1;
             } else {
-                last_disproven = ciphertext_symbol;
+                last_not_disproven = ciphertext_symbol;
             }
         }
         if n_disproven == 27
             || n_disproven == 26
                 && is_conflict_or_insert(
-                    last_disproven,
+                    last_not_disproven,
                     plaintext_symbol,
                     &mut occupied_ciphertext_symbols,
                     &mut occupied_plaintext_symbols,
@@ -185,13 +181,13 @@ fn disprove_plaintext(
 
 // Returns whether a substitution pair is disproven.
 fn disprove_pair(
-    ciphertext_poslist: &[u16],
-    plaintext_poslist: &[u16],
+    ciphertext_positions: &[u16],
+    plaintext_positions: &[u16],
     noise: usize,
 ) -> bool {
     // 1. Direct length comparison.
-    let ciphertext_pop = ciphertext_poslist.len();
-    let plaintext_pop = plaintext_poslist.len();
+    let ciphertext_pop = ciphertext_positions.len();
+    let plaintext_pop = plaintext_positions.len();
     if test_direct_length(ciphertext_pop, plaintext_pop, noise) {
         return true;
     }
@@ -199,7 +195,7 @@ fn disprove_pair(
     // Given that ciphertext is just a transform of the plaintext with extra
     // noise, the corresponding ciphertext symbol cannot be more than an offset
     // away from the plaintext symbol
-    if test_alignment(ciphertext_poslist, plaintext_poslist, noise as u16) {
+    if test_alignment(ciphertext_positions, plaintext_positions, noise as u16) {
         return true;
     }
     false
@@ -214,13 +210,13 @@ const fn test_direct_length(
 }
 
 fn test_alignment(
-    ciphertext_symbol_poslist: &[u16],
-    plaintext_symbol_poslist: &[u16],
+    ciphertext_symbol_positions: &[u16],
+    plaintext_symbol_positions: &[u16],
     total_noise: u16,
 ) -> bool {
     let mut noise_used = 0;
-    let mut ciphertext_iter = ciphertext_symbol_poslist.iter();
-    for &plaintext_index in plaintext_symbol_poslist {
+    let mut ciphertext_iter = ciphertext_symbol_positions.iter();
+    for &plaintext_index in plaintext_symbol_positions {
         let start_pos = plaintext_index + noise_used;
         let end_pos = plaintext_index + total_noise;
         loop {
