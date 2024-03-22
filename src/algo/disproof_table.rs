@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 // Contains all invalid mappings
 pub struct DisproofTable {
     // Cipher to plaintext char pairs
@@ -7,12 +5,12 @@ pub struct DisproofTable {
 }
 
 impl DisproofTable {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             cipher_to_plain: [[false; 27]; 27],
         }
     }
-    pub fn is_disproven(
+    pub const fn is_disproven(
         &self,
         ciphertext_symbol: u8,
         plaintext_symbol: u8,
@@ -27,24 +25,5 @@ impl DisproofTable {
     ) {
         self.cipher_to_plain[ciphertext_symbol as usize]
             [plaintext_symbol as usize] = true
-    }
-}
-
-impl Default for DisproofTable {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Display for DisproofTable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for row in &self.cipher_to_plain {
-            for &cell in row {
-                let symbol = if cell { '1' } else { '0' };
-                write!(f, "{symbol} ")?;
-            }
-            writeln!(f)?;
-        }
-        Ok(())
     }
 }

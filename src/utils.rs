@@ -1,3 +1,14 @@
+pub fn string_to_vec(text: &str) -> Vec<u8> {
+    text.chars().map(char_to_u8).collect()
+}
+
+const fn char_to_u8(character: char) -> u8 {
+    match character {
+        'a'..='z' => character as u8 - b'a',
+        ' ' => 26,
+        _ => unreachable!(),
+    }
+}
 pub const fn get_hardcoded_plaintexts() -> [&'static str; 5] {
     [
         "unconquerable tropical pythagoras rebukingly price ephedra barmiest hastes spades fevers cause wisped overdecorates linked smitten trickle scanning cognize oaken casework significate influenceable precontrived clockers defalcation fruitless splintery kids placidness regenerate harebrained liberalism neuronic clavierist attendees matinees prospectively bubbies longitudinal raving relaxants rigged oxygens chronologist briniest tweezes profaning abeyances fixity gulls coquetted budgerigar drooled unassertive shelter subsoiling surmounted frostlike jobbed hobnailed fulfilling jaywalking testabilit"

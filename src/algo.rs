@@ -1,6 +1,6 @@
 mod disproof_table;
 
-use crate::encryption::string_to_vec;
+use crate::utils::string_to_vec;
 use disproof_table::DisproofTable;
 
 pub fn apply_cryptanalysis(
@@ -21,12 +21,11 @@ pub fn apply_cryptanalysis(
         .collect();
     let plaintext_length = plaintext_candidates[0].len();
     let noise = ciphertext.len() - plaintext_length;
-    for (index, plaintext_position) in plaintext_position_list.iter().enumerate() {
-        if !disprove_plaintext(
-            plaintext_position,
-            ciphertext_positions,
-            noise,
-        ) {
+    for (index, plaintext_position) in
+        plaintext_position_list.iter().enumerate()
+    {
+        if !disprove_plaintext(plaintext_position, ciphertext_positions, noise)
+        {
             not_refuted.push(index);
         }
     }
@@ -135,11 +134,11 @@ fn disprove_plaintext(
     ciphertext_positions: &[Vec<u16>],
     noise: usize,
 ) -> bool {
-    // 0. Convert plaintext and ciphertext to integer representations.
     let mut disproof_table = DisproofTable::new();
     let mut occupied_ciphertext_symbols = [false; 27];
     let mut occupied_plaintext_symbols = [false; 27];
-    // 1. Try each combination of key-value pair to eliminate impossible pairs
+    // Try each combination of key-value pairs to eliminate impossible pairs.
+    // Returns true if there are contradictions or no solutions in the disproof table.
     for ciphertext_symbol in 0..27 {
         let mut n_disproven = 0;
         let mut last_not_disproven = 0;
