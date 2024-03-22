@@ -14,9 +14,19 @@ pub fn apply_cryptanalysis(
         .iter()
         .map(|s| string_to_vec(s))
         .collect();
-    let ciphertext_positions = to_position_list(ciphertext);
-    for (index, plaintext) in plaintext_candidates.iter().enumerate() {
-        if !disprove_plaintext(plaintext, ciphertext, &ciphertext_positions) {
+    let ciphertext_positions = &to_position_list(ciphertext);
+    let plaintext_position_list: Vec<Vec<Vec<u16>>> = plaintext_candidates
+        .iter()
+        .map(|plaintext| to_position_list(plaintext))
+        .collect();
+    let plaintext_length = plaintext_candidates[0].len();
+    let noise = ciphertext.len() - plaintext_length;
+    for (index, plaintext_position) in plaintext_position_list.iter().enumerate() {
+        if !disprove_plaintext(
+            plaintext_position,
+            ciphertext_positions,
+            noise,
+        ) {
             not_refuted.push(index);
         }
     }
@@ -26,14 +36,18 @@ pub fn apply_cryptanalysis(
     }
     debug_assert!(!not_refuted.is_empty());
     // 3. Attempt to find out which plaintext is most likely with freq analysis.
-    let ciphertext_dist = calculate_frequency_distribution(ciphertext, 0);
+    let ciphertext_dist = convert_to_frequency_distribution(
+        ciphertext_positions,
+        ciphertext.len(),
+        0,
+    );
     let mut min_diff = f64::MAX;
     let mut best = 0;
     for item in not_refuted {
-        let plaintext = &plaintext_candidates[item];
-        let plaintext_dist = calculate_frequency_distribution(
-            plaintext,
-            ciphertext.len() - plaintext.len(),
+        let plaintext_dist = convert_to_frequency_distribution(
+            &plaintext_position_list[item],
+            plaintext_length,
+            noise,
         );
         let diff =
             calculate_overall_difference(&plaintext_dist, &ciphertext_dist);
@@ -45,19 +59,22 @@ pub fn apply_cryptanalysis(
     best
 }
 
-fn calculate_frequency_distribution(text: &[u8], noise: usize) -> [f64; 27] {
-    let mut frequency_distribution = [0u64; 27];
-    for &symbol in text {
-        frequency_distribution[symbol as usize] += 1;
+fn convert_to_frequency_distribution(
+    text_positions: &[Vec<u16>],
+    text_length: usize,
+    noise: usize,
+) -> [f64; 27] {
+    let mut frequency_distribution = [0f64; 27];
+    for (index, list) in text_positions.iter().enumerate() {
+        frequency_distribution[index] = list.len() as f64;
     }
-    frequency_distribution.sort_unstable();
-    let mut float_distribution = [0.0; 27];
-    for i in 0..27 {
-        let counts = frequency_distribution[i] as f64;
-        float_distribution[i] =
-            (counts + noise as f64 / 27.0) / (text.len() + noise) as f64;
+    for int_freq in &mut frequency_distribution {
+        *int_freq =
+            (*int_freq + noise as f64 / 27.0) / (text_length + noise) as f64;
     }
-    float_distribution
+    frequency_distribution
+        .sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    frequency_distribution
 }
 
 fn calculate_overall_difference(sorted_a: &[f64], sorted_b: &[f64]) -> f64 {
@@ -114,14 +131,12 @@ fn is_conflict_or_insert(
 
 // Returns whether it is impossible for the plaintext to map to the ciphertext.
 fn disprove_plaintext(
-    plaintext: &[u8],
-    ciphertext: &[u8],
+    plaintext_positions: &[Vec<u16>],
     ciphertext_positions: &[Vec<u16>],
+    noise: usize,
 ) -> bool {
     // 0. Convert plaintext and ciphertext to integer representations.
-    let plaintext_positions = to_position_list(plaintext);
     let mut disproof_table = DisproofTable::new();
-    let noise = ciphertext.len() - plaintext.len();
     let mut occupied_ciphertext_symbols = [false; 27];
     let mut occupied_plaintext_symbols = [false; 27];
     // 1. Try each combination of key-value pair to eliminate impossible pairs
