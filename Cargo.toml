@@ -37,4 +37,3 @@ debug-assertions = true
 
 [dependencies]
 rand = "0.8.5"
-bytecount = "0.6.7"
